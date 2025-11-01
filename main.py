@@ -4,19 +4,23 @@ from flask import Flask
 from database import init_db
 from routes import setup_routes
 
+def get_project_root():
+    """Get the project root directory"""
+    return os.path.dirname(os.path.abspath(__file__))
+
+# Use this for all file operations
+db_path = os.path.join(get_project_root(), 'sensor_data.db')
+
 def create_app():
     app = Flask(__name__)
-    app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    app.secret_key = os.environ.get('SECRET_KEY', 'fallback-secret-key')
     setup_routes(app)
     return app
 
 app = create_app()
 
 # Initialize database
-@app.before_first_request
-def create_tables():
+with app.app_context():
     init_db()
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=False)
+
