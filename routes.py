@@ -237,18 +237,6 @@ def setup_routes(app):
         return redirect(url_for('manage_clients'))
 
 
-    @app.route('/delete-client', methods=['POST'])
-    @login_required
-    def delete_client_route():
-        if session.get('username') != 'owner':
-            flash('Access denied', 'error')
-            return redirect(url_for('dashboard'))
-        
-        username = request.form['username']
-        delete_client(username)
-        flash('Client deleted', 'success')
-        return redirect(url_for('manage_clients'))
-
     @app.route('/download-csv')
     @login_required
     def download_csv():
@@ -265,26 +253,6 @@ def setup_routes(app):
             mimetype='text/csv',
             as_attachment=True,
             download_name=f'sensor_data_{datetime.now(UK_TZ).strftime("%Y%m%d_%H%M")}.csv'
-        )
-
-    @app.route('/download-clients-csv')
-    @login_required
-    def download_clients_csv():
-        if session.get('username') != 'owner':
-            flash('Access denied', 'error')
-            return redirect(url_for('dashboard'))
-        
-        clients = get_all_clients()
-        df = pd.DataFrame(clients)
-        output = io.StringIO()
-        df.to_csv(output, index=False)
-        output.seek(0)
-        
-        return send_file(
-            io.BytesIO(output.getvalue().encode('utf-8')),
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name='clients_list.csv'
         )
 
     @app.route('/refresh')
@@ -320,28 +288,6 @@ def setup_routes(app):
     def clear_filter():
         return redirect(url_for('dashboard'))
 
-    @app.route('/toggle-email/<username>', methods=['POST'])
-    @login_required
-    def toggle_email(username):
-        if session.get('username') != 'owner':
-            flash('Access denied', 'error')
-            return redirect(url_for('dashboard'))
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT email_enabled FROM users WHERE username = ?", (username,))
-        current = cursor.fetchone()
-        new_status = 0 if current and current[0] == 1 else 1
-        cursor.execute("UPDATE users SET email_enabled = ? WHERE username = ?", (new_status, username))
-        conn.commit()
-        conn.close()
-        
-        flash(f'Email alerts {"enabled" if new_status else "disabled"} for {username}', 'success')
-        return redirect(url_for('manage_clients'))
-
-    @app.route('/health')
-    def health_check():
-        return jsonify({"status": "healthy", "time": datetime.now(UK_TZ).isoformat()})
 
     # Add any custom routes you had - this includes all common ones from your system
 
@@ -368,7 +314,7 @@ def setup_routes(app):
         flash(f'Client {username} deleted', 'success')
         return redirect(url_for('manage_clients'))
 
-    @app.route('/toggle-email/<username>', methods=['POST'])
+    @app.route('/toggle-email/<username>', methods=['POST'])-----
     @login_required
     def toggle_email(username):
         if session.get('username') != 'owner':
@@ -386,6 +332,8 @@ def setup_routes(app):
         
         flash(f'Email alerts {"enabled" if new_status else "disabled"} for {username}', 'success')
         return redirect(url_for('manage_clients'))
+
+
 
     # ==================== DATA & FILTER ROUTES ====================
     @app.route('/filter', methods=['POST'])
