@@ -4,3 +4,4 @@ Werkzeug==2.3.7
 gunicorn==21.2.0
 numpy==1.24.3
 pandas==1.5.3
+setuptools==72.1.0
