@@ -222,28 +222,20 @@ def setup_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    @app.route('/manage-clients')
-    @login_required
-    def manage_clients():
-        if session.get('username') != 'owner':
-            flash('Access denied', 'error')
-            return redirect(url_for('dashboard'))
-        
-        clients = get_all_clients()
-        return render_template('manage_clients.html', clients=clients)
-
+    
     @app.route('/update-client', methods=['POST'])
     @login_required
     def update_client_route():
         if session.get('username') != 'owner':
             flash('Access denied', 'error')
             return redirect(url_for('dashboard'))
-        
+    
         username = request.form['username']
         email_enabled = int(request.form.get('email_enabled', 0))
         update_user_email_enabled(username, email_enabled)
-        flash('Client updated', 'success')
+        flash(f'Email alerts updated for {username}', 'success')
         return redirect(url_for('manage_clients'))
+
 
     @app.route('/delete-client', methods=['POST'])
     @login_required
@@ -363,23 +355,6 @@ def setup_routes(app):
         
         clients = get_all_clients()  # Returns list of dicts: username, place, email, etc.
         return render_template('manage_clients.html', clients=clients)
-
-    @app.route('/update-client', methods=['POST'])
-    @login_required
-    def update_client_route():
-        if session.get('username') != 'owner':
-            flash('Access denied', 'error')
-            return redirect(url_for('dashboard'))
-        
-        username = request.form['username']
-        email = request.form.get('email', '')
-        phone = request.form.get('phone', '')
-        address = request.form.get('address', '')
-        collection_interval = int(request.form.get('collection_interval', 10))
-        
-        update_client(username, email=email, phone=phone, address=address, collection_interval=collection_interval)
-        flash(f'Client {username} updated', 'success')
-        return redirect(url_for('manage_clients'))
 
     @app.route('/delete-client', methods=['POST'])
     @login_required
