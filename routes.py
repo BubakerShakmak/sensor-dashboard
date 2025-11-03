@@ -2,14 +2,12 @@
 # ALL routes included - no placeholders - ready to copy-paste
 # Dynamic API keys: auto-generated on registration, stored in DB, checked on submit
 # HTML separated into templates/login.html and templates/forgot_password.html
-
 from flask import request, jsonify, render_template, send_file, redirect, url_for, session, abort, flash
 import pandas as pd
 import io
 from datetime import datetime
 import re
 import secrets
-
 from config import UK_TZ, TEMP_RANGE, HUM_RANGE
 from database import (
     get_db_connection,
@@ -27,6 +25,7 @@ from email_service import send_alert_email
 from simulation_generator import create_simulation_file
 from auth import login_required, authenticate_user
 
+
 # ------------------ format_username_place ------------------
 def format_username_place(text):
     if not text:
@@ -35,82 +34,85 @@ def format_username_place(text):
     formatted = re.sub(r'[\s-]+', '_', formatted)
     return formatted.lower()
 
+
 # ------------------ handle_client_registration ------------------
 def handle_client_registration():
     username = request.form.get('reg_username', '').strip()
     password = request.form.get('reg_password', '')
     place = request.form.get('reg_place', '').strip()
     email = request.form.get('reg_email', '').strip()
-    
+   
     username = format_username_place(username)
     place = format_username_place(place)
-    
+   
     if not all([username, password, place]):
         return False, "All fields are required"
-    
+   
     if len(password) < 6:
         return False, "Password must be at least 6 characters"
     if len(username) < 3:
         return False, "Username must be at least 3 characters"
     if len(place) < 2:
         return False, "Place name must be at least 2 characters"
-    
+   
     if get_user_by_username(username):
         return False, "Username already exists"
-    
+   
     conn = get_db_connection()
     existing = conn.execute(
-        "SELECT 1 FROM users WHERE username || '_' || places = ?", 
+        "SELECT 1 FROM users WHERE username || '_' || places = ?",
         (f"{username}_{place}",)
     ).fetchone()
     conn.close()
     if existing:
         return False, "This username and place combination already exists"
-    
+   
     phone = request.form.get('reg_phone', '').strip()
     address = request.form.get('reg_address', '').strip()
-    
+   
     from system_settings import system_settings
     collection_interval = system_settings.get_collection_interval()
-    
+   
     api_key = secrets.token_hex(32)
-    
+   
     success = add_client(username, password, place, email, phone, address, collection_interval, api_key)
-    
+   
     if success:
         formatted_name = f"{username}_{place}_RESILIENT"
         conn = get_db_connection()
         conn.execute("UPDATE clients SET formatted_name = ? WHERE username = ?", (formatted_name, username))
         conn.commit()
         conn.close()
-        
+       
         try:
             create_simulation_file(username, place, collection_interval, api_key)
         except Exception as e:
             print(f"Simulator error: {e}")
-        
+       
         return True, f"Registered! API Key: {api_key}<br><b>Save it - shown once!</b>"
     return False, "Registration failed."
+
 
 # ------------------ handle_password_reset ------------------
 def handle_password_reset():
     username = request.form.get('username', '').strip()
     new_password = request.form.get('new_password', '')
     confirm_password = request.form.get('confirm_password', '')
-    
+   
     if not all([username, new_password, confirm_password]):
         return False, "All fields required"
     if new_password != confirm_password:
         return False, "Passwords do not match"
     if len(new_password) < 6:
         return False, "Password too short"
-    
+   
     user = get_user_by_username(username)
     if not user:
         return False, "User not found"
-    
+   
     success = update_client_password(username, new_password) if user['role'] == 'client' else update_owner_password(username, new_password)
     return (True, "Password reset!") if success else (False, "Reset failed")
+
 
 # ------------------ setup_routes ------------------
 def setup_routes(app):
@@ -165,11 +167,11 @@ def setup_routes(app):
         cursor.execute("SELECT username, places, email_enabled FROM users WHERE role = 'client'")
         clients = cursor.fetchall()
         conn.close()
-        
+       
         # Convert to list of dicts for template
         data_list = [dict(row) for row in data]
         clients_list = [dict(row) for row in clients]
-        
+       
         return render_template('dashboard.html', data=data_list, clients=clients_list)
 
     @app.route('/submit-data', methods=['POST'])
@@ -177,36 +179,35 @@ def setup_routes(app):
         api_key = request.headers.get('X-API-Key')
         if not api_key:
             return jsonify({"error": "Missing API key"}), 401
-        
+       
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT username, formatted_name FROM clients WHERE api_key = ?", (api_key,))
         client = cursor.fetchone()
         conn.close()
-        
+       
         if not client:
             return jsonify({"error": "Invalid API key"}), 401
-        
+       
         username, formatted_name = client
         client_name = formatted_name or username
-
         try:
             payload = request.get_json()
             if not payload:
                 return jsonify({"error": "No JSON"}), 400
-            
+           
             required = ['place', 'temperature', 'humidity']
             if not all(k in payload for k in required):
                 return jsonify({"error": "Missing fields"}), 400
-            
+           
             temperature = float(payload['temperature'])
             humidity = float(payload['humidity'])
             place = format_username_place(payload['place'])
             client_place = f"{client_name}_{place}"
             warning = check_sensor_ranges(temperature, humidity) or ""
-            
+           
             save_sensor_data(client_place, place, temperature, humidity, warning)
-            
+           
             if warning:
                 conn = get_db_connection()
                 cursor = conn.cursor()
@@ -215,59 +216,60 @@ def setup_routes(app):
                 conn.close()
                 if row and row[0] == 1:
                     send_alert_email(client_name, place, temperature, humidity, warning)
-            
+           
             return jsonify({"status": "success", "client": client_name, "warning": warning}), 200
         except ValueError:
             return jsonify({"error": "Invalid number format"}), 400
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    
     @app.route('/update-client', methods=['POST'])
     @login_required
     def update_client_route():
         if session.get('username') != 'owner':
             flash('Access denied', 'error')
             return redirect(url_for('dashboard'))
-    
+       
         username = request.form['username']
         email_enabled = int(request.form.get('email_enabled', 0))
         update_user_email_enabled(username, email_enabled)
         flash(f'Email alerts updated for {username}', 'success')
         return redirect(url_for('manage_clients'))
 
-
     @app.route('/download-csv')
     @login_required
     def download_csv():
         conn = get_db_connection()
-        df = pd.read_sql_query("SELECT * FROM sensor_data ORDER BY timestamp DESC", conn)
+        df = pd.read_sql_query("""
+            SELECT timestamp, client_place AS "Client & Place", place AS "Place",
+                   temperature AS "Temperature (°C)", humidity AS "Humidity (%)", warning AS "Warning"
+            FROM sensor_data
+            ORDER BY timestamp DESC
+        """, conn)
         conn.close()
-        
+       
         output = io.StringIO()
         df.to_csv(output, index=False)
         output.seek(0)
-        
+       
+        filename = f'sensor_data_{datetime.now(UK_TZ).strftime("%Y%m%d_%H%M")}.csv'
         return send_file(
             io.BytesIO(output.getvalue().encode('utf-8')),
             mimetype='text/csv',
             as_attachment=True,
-            download_name=f'sensor_data_{datetime.now(UK_TZ).strftime("%Y%m%d_%H%M")}.csv'
+            download_name=filename
         )
 
     @app.route('/refresh')
     @login_required
     def refresh():
+        flash('Data refreshed', 'success')
         return redirect(url_for('dashboard'))
-
 
     @app.route('/clear-filter')
     @login_required
     def clear_filter():
         return redirect(url_for('dashboard'))
-
-
-    # Add any custom routes you had - this includes all common ones from your system
 
     # ==================== CLIENT MANAGEMENT ROUTES ====================
     @app.route('/manage-clients')
@@ -276,8 +278,8 @@ def setup_routes(app):
         if session.get('username') != 'owner':
             flash('Access denied: Owner only', 'error')
             return redirect(url_for('dashboard'))
-        
-        clients = get_all_clients()  # Returns list of dicts: username, place, email, etc.
+           
+        clients = get_all_clients()
         return render_template('manage_clients.html', clients=clients)
 
     @app.route('/delete-client', methods=['POST'])
@@ -286,7 +288,7 @@ def setup_routes(app):
         if session.get('username') != 'owner':
             flash('Access denied', 'error')
             return redirect(url_for('dashboard'))
-        
+           
         username = request.form['username']
         delete_client(username)
         flash(f'Client {username} deleted', 'success')
@@ -298,7 +300,7 @@ def setup_routes(app):
         if session.get('username') != 'owner':
             flash('Access denied', 'error')
             return redirect(url_for('dashboard'))
-        
+       
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT email_enabled FROM clients WHERE username = ?", (username,))
@@ -307,22 +309,22 @@ def setup_routes(app):
         cursor.execute("UPDATE clients SET email_enabled = ? WHERE username = ?", (new_status, username))
         conn.commit()
         conn.close()
-        
+       
         flash(f'Email alerts {"enabled" if new_status else "disabled"} for {username}', 'success')
         return redirect(url_for('manage_clients'))
 
     # ==================== DATA & FILTER ROUTES ====================
-@app.route('/filter', methods=['POST'])
+    @app.route('/filter', methods=['POST'])
     @login_required
     def filter_data():
         place = request.form.get('place')
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
-        
+       
         conn = get_db_connection()
         query = "SELECT * FROM sensor_data WHERE 1=1"
         params = []
-        
+       
         if place:
             query += " AND place = ?"
             params.append(place)
@@ -332,56 +334,21 @@ def setup_routes(app):
         if end_date:
             query += " AND timestamp <= ?"
             params.append(end_date + " 23:59:59")
-        
+       
         query += " ORDER BY timestamp DESC"
         data = conn.execute(query, params).fetchall()
         conn.close()
-        
+       
         return render_template('dashboard.html', data=data, places=get_known_places())
 
-    @app.route('/clear-filter')
-    @login_required
-    def clear_filter():
-        return redirect(url_for('dashboard'))
-
-    @app.route('/refresh')
-    @login_required
-    def refresh():
-        flash('Data refreshed', 'success')
-        return redirect(url_for('dashboard'))
-
     # ==================== CSV EXPORT ROUTES ====================
-    @app.route('/download-csv')
-    @login_required
-    def download_csv():
-        conn = get_db_connection()
-        df = pd.read_sql_query("""
-            SELECT timestamp, client_place AS "Client & Place", place AS "Place", 
-                   temperature AS "Temperature (°C)", humidity AS "Humidity (%)", warning AS "Warning"
-            FROM sensor_data 
-            ORDER BY timestamp DESC
-        """, conn)
-        conn.close()
-        
-        output = io.StringIO()
-        df.to_csv(output, index=False)
-        output.seek(0)
-        
-        filename = f'sensor_data_{datetime.now(UK_TZ).strftime("%Y%m%d_%H%M")}.csv'
-        return send_file(
-            io.BytesIO(output.getvalue().encode('utf-8')),
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name=filename
-        )
-
     @app.route('/download-clients-csv')
     @login_required
     def download_clients_csv():
         if session.get('username') != 'owner':
             flash('Access denied', 'error')
             return redirect(url_for('dashboard'))
-        
+       
         clients = get_all_clients()
         df = pd.DataFrame([{
             'Username': c['username'],
@@ -392,11 +359,11 @@ def setup_routes(app):
             'Email Alerts': 'Enabled' if c.get('email_enabled') else 'Disabled',
             'Collection Interval (s)': c.get('collection_interval', 10)
         } for c in clients])
-        
+       
         output = io.StringIO()
         df.to_csv(output, index=False)
         output.seek(0)
-        
+       
         return send_file(
             io.BytesIO(output.getvalue().encode('utf-8')),
             mimetype='text/csv',
@@ -411,18 +378,18 @@ def setup_routes(app):
         if session.get('username') != 'owner':
             flash('Access denied', 'error')
             return redirect(url_for('dashboard'))
-        
+       
         user = get_user_by_username(username)
         if not user or user['role'] != 'client':
             flash('Client not found', 'error')
             return redirect(url_for('manage_clients'))
-        
+       
         try:
             create_simulation_file(username, user['places'], user.get('collection_interval', 10))
             flash(f'Simulation file generated for {username}', 'success')
         except Exception as e:
             flash(f'Error: {str(e)}', 'error')
-        
+       
         return redirect(url_for('manage_clients'))
 
     @app.route('/health')
@@ -434,7 +401,7 @@ def setup_routes(app):
             status = "healthy"
         except:
             status = "database_error"
-        
+       
         return jsonify({
             "status": status,
             "service": "StormSaver Sensor Dashboard",
@@ -448,16 +415,16 @@ def setup_routes(app):
         if session.get('username') != 'owner':
             flash('Access denied', 'error')
             return redirect(url_for('dashboard'))
-        
+       
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT api_key FROM clients WHERE username = ?", (username,))
         row = cursor.fetchone()
         conn.close()
-        
+       
         if row and row[0]:
             flash(f'API Key for {username}: {row[0]}', 'success')
         else:
             flash('No API key found', 'error')
-        
+       
         return redirect(url_for('manage_clients'))
