@@ -15,7 +15,15 @@ def init_app():
     print("Database ready!")
 
 with app.app_context():
-    init_app()
+    conn = get_db_connection()
+    try:
+        conn.execute("ALTER TABLE clients ADD COLUMN api_key TEXT")
+        conn.execute("ALTER TABLE clients ADD COLUMN formatted_name TEXT")
+        conn.execute("ALTER TABLE clients ADD COLUMN collection_interval INTEGER DEFAULT 10")
+        conn.commit()
+    except:
+        pass  # Already exists
+    conn.close()
 
 setup_routes(app)
 

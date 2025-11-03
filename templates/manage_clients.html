@@ -22,8 +22,8 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, msg in messages %}
-                <p style="background: {{ '#d4edda' if category=='success' else '#f8d7da' }}; color: {{ '#155724' if category=='success' else '#721c24' }}; padding: 10px; border-radius: 5px; margin: 10px 0;">
-                    {{ msg }}
+                <p style="background: {{ '#d4edda' if category=='success' else '#f8d7da' }}; color: {{ '#155724' if category=='success' else '#721c24' }}; padding: 10px; border-radius: 5px;">
+                    {{ msg | safe }}  <!-- For <br><b> in API key -->
                 </p>
             {% endfor %}
         {% endif %}

@@ -37,60 +37,64 @@ def format_username_place(text):
 
 # ------------------ handle_client_registration ------------------
 def handle_client_registration():
-    username = request.form.get('reg_username', '').strip()
-    password = request.form.get('reg_password', '')
-    place = request.form.get('reg_place', '').strip()
-    email = request.form.get('reg_email', '').strip()
-   
-    username = format_username_place(username)
-    place = format_username_place(place)
-   
-    if not all([username, password, place]):
-        return False, "All fields are required"
-   
-    if len(password) < 6:
-        return False, "Password must be at least 6 characters"
-    if len(username) < 3:
-        return False, "Username must be at least 3 characters"
-    if len(place) < 2:
-        return False, "Place name must be at least 2 characters"
-   
-    if get_user_by_username(username):
-        return False, "Username already exists"
-   
-    conn = get_db_connection()
-    existing = conn.execute(
-        "SELECT 1 FROM users WHERE username || '_' || places = ?",
-        (f"{username}_{place}",)
-    ).fetchone()
-    conn.close()
-    if existing:
-        return False, "This username and place combination already exists"
-   
-    phone = request.form.get('reg_phone', '').strip()
-    address = request.form.get('reg_address', '').strip()
-   
-    from system_settings import system_settings
-    collection_interval = system_settings.get_collection_interval()
-   
-    api_key = secrets.token_hex(32)
-   
-    success = add_client(username, password, place, email, phone, address, collection_interval, api_key)
-   
-    if success:
-        formatted_name = f"{username}_{place}_RESILIENT"
+    try:
+        username = request.form.get('reg_username', '').strip()
+        password = request.form.get('reg_password', '')
+        place = request.form.get('reg_place', '').strip()
+        email = request.form.get('reg_email', '').strip()
+       
+        username = format_username_place(username)
+        place = format_username_place(place)
+       
+        if not all([username, password, place]):
+            return False, "All fields are required"
+       
+        if len(password) < 6:
+            return False, "Password must be at least 6 characters"
+        if len(username) < 3:
+            return False, "Username must be at least 3 characters"
+        if len(place) < 2:
+            return False, "Place name must be at least 2 characters"
+       
+        if get_user_by_username(username):
+            return False, "Username already exists"
+       
         conn = get_db_connection()
-        conn.execute("UPDATE clients SET formatted_name = ? WHERE username = ?", (formatted_name, username))
-        conn.commit()
+        existing = conn.execute(
+            "SELECT 1 FROM users WHERE username || '_' || places = ?",
+            (f"{username}_{place}",)
+        ).fetchone()
         conn.close()
+        if existing:
+            return False, "This username and place combination already exists"
        
-        try:
-            create_simulation_file(username, place, collection_interval, api_key)
-        except Exception as e:
-            print(f"Simulator error: {e}")
+        phone = request.form.get('reg_phone', '').strip()
+        address = request.form.get('reg_address', '').strip()
        
-        return True, f"Registered! API Key: {api_key}<br><b>Save it - shown once!</b>"
-    return False, "Registration failed."
+        from system_settings import system_settings
+        collection_interval = system_settings.get_collection_interval()
+       
+        api_key = secrets.token_hex(32)
+       
+        success = add_client(username, password, place, email, phone, address, collection_interval, api_key)
+       
+        if success:
+            formatted_name = f"{username}_{place}_RESILIENT"
+            conn = get_db_connection()
+            conn.execute("UPDATE clients SET formatted_name = ? WHERE username = ?", (formatted_name, username))
+            conn.commit()
+            conn.close()
+           
+            try:
+                create_simulation_file(username, place, collection_interval, api_key)
+            except Exception as e:
+                print(f"Simulator error: {e}")  # Log to Render
+           
+            return True, f"Registered! API Key: {api_key}<br><b>Save it - shown once!</b>"
+        return False, "Registration failed: DB insert error"
+    except Exception as e:
+        print(f"Registration crash: {str(e)}")  # Shows in Render logs
+        return False, f"Error: {str(e)}"
 
 
 # ------------------ handle_password_reset ------------------
@@ -144,10 +148,15 @@ def setup_routes(app):
         return render_template('login.html')
 
     @app.route('/register', methods=['POST'])
+    @login_required
     def register():
+        if session.get('role') != 'owner':
+            flash('Access denied: Owner only', 'error')
+            return redirect(url_for('dashboard'))
+        
         success, msg = handle_client_registration()
         flash(msg, 'success' if success else 'error')
-        return redirect(url_for('login'))
+        return redirect(url_for('manage_clients'))  # Stay on manage page
 
     @app.route('/forgot-password', methods=['GET', 'POST'])
     def forgot_password():
@@ -286,7 +295,7 @@ def setup_routes(app):
            
         clients = get_all_clients()
         return render_template('manage_clients.html', clients=clients)
-
+           
     @app.route('/delete-client', methods=['POST'])
     @login_required
     def delete_client_route():
