@@ -2,32 +2,49 @@
 <html>
 <head>
     <title>StormSaver Dashboard</title>
-    <script>
-        setTimeout(() => location.reload(), 10000); // Auto-refresh every 10s
-    </script>
+    <meta http-equiv="refresh" content="10"> <!-- Auto-refresh every 10s -->
     <style>
         body { font-family: Arial; background: #f4f6f9; padding: 20px; }
         table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background: #1a73e8; color: white; }
         .warning { color: red; font-weight: bold; }
+        .filter { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, select, button { padding: 8px; margin: 5px; }
     </style>
 </head>
 <body>
     <h1>🌩️ StormSaver Dashboard</h1>
-    <p>Logged in as: {{ session.username }} ({{ session.role }}) | <a href="/logout">Logout</a> | <a href="/refresh">Refresh</a></p>
+    <p>Logged in as: {{ session['username'] }} ({{ session['role'] }}) | <a href="/logout">Logout</a> | <a href="/refresh">Refresh</a></p>
     {% with messages = get_flashed_messages() %}
         {% if messages %}
             {% for msg in messages %}
-                <p style="background: #d4edda; padding: 10px; border-radius: 5px;">{{ msg }}</p>
+                <p style="background: #d4edda; padding: 10px; border-radius: 5px; color: green;">{{ msg }}</p>
             {% endfor %}
         {% endif %}
     {% endwith %}
+
+    <div class="filter">
+        <form method="POST" action="/filter">
+            <select name="place">
+                <option value="All">All Places</option>
+                {% for p in places %}
+                    <option value="{{ p }}">{{ p }}</option>
+                {% endfor %}
+            </select>
+            <input type="date" name="start_date" placeholder="Start Date">
+            <input type="date" name="end_date" placeholder="End Date">
+            <button type="submit">Filter</button>
+            <a href="/clear-filter"><button type="button">Clear</button></a>
+        </form>
+    </div>
+
     <h2>Sensor Data (Latest 200)</h2>
+    {% if data %}
     <table>
         <tr>
             <th>Time (UK)</th>
-            <th>Client</th>
+            <th>Client & Place</th>
             <th>Place</th>
             <th>Temp (°C)</th>
             <th>Hum (%)</th>
@@ -44,8 +61,12 @@
         </tr>
         {% endfor %}
     </table>
-    {% if session.role == 'owner' %}
-        <p><a href="/manage-clients">Manage Clients</a></p>
+    {% else %}
+    <p>No data yet. Submit via API or simulation!</p>
+    {% endif %}
+
+    {% if session['role'] == 'owner' %}
+        <p><a href="/manage-clients">Manage Clients</a> | <a href="/download-csv">Download CSV</a></p>
     {% endif %}
 </body>
 </html>

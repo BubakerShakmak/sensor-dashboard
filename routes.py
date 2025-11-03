@@ -113,6 +113,12 @@ def handle_password_reset():
     success = update_client_password(username, new_password) if user['role'] == 'client' else update_owner_password(username, new_password)
     return (True, "Password reset!") if success else (False, "Reset failed")
 
+# ------------------ get_known_places ------------------
+def get_known_places():
+    conn = get_db_connection()
+    places = [row[0] for row in conn.execute("SELECT DISTINCT place FROM sensor_data").fetchall()]
+    conn.close()
+    return places
 
 # ------------------ setup_routes ------------------
 def setup_routes(app):
@@ -157,6 +163,7 @@ def setup_routes(app):
         flash('Logged out', 'success')
         return redirect(url_for('login'))
 
+       
     @app.route('/dashboard')
     @login_required
     def dashboard():
@@ -164,15 +171,13 @@ def setup_routes(app):
         cursor = conn.cursor()
         cursor.execute("SELECT id, timestamp, client_place, place, temperature, humidity, warning FROM sensor_data ORDER BY timestamp DESC LIMIT 200")
         data = cursor.fetchall()
-        cursor.execute("SELECT username, places, email_enabled FROM users WHERE role = 'client'")
-        clients = cursor.fetchall()
         conn.close()
        
-        # Convert to list of dicts for template
+        # Convert to list of dicts
         data_list = [dict(row) for row in data]
-        clients_list = [dict(row) for row in clients]
+        places = get_known_places()  # For filter dropdown
        
-        return render_template('dashboard.html', data=data_list, clients=clients_list)
+        return render_template('dashboard.html', data=data_list, places=places)
 
     @app.route('/submit-data', methods=['POST'])
     def submit_data():
@@ -322,10 +327,10 @@ def setup_routes(app):
         end_date = request.form.get('end_date')
        
         conn = get_db_connection()
-        query = "SELECT * FROM sensor_data WHERE 1=1"
+        query = "SELECT id, timestamp, client_place, place, temperature, humidity, warning FROM sensor_data WHERE 1=1"
         params = []
        
-        if place:
+        if place and place != 'All':
             query += " AND place = ?"
             params.append(place)
         if start_date:
@@ -335,16 +340,17 @@ def setup_routes(app):
             query += " AND timestamp <= ?"
             params.append(end_date + " 23:59:59")
        
-        query += " ORDER BY timestamp DESC"
+        query += " ORDER BY timestamp DESC LIMIT 200"
         data = conn.execute(query, params).fetchall()
         conn.close()
        
-        # Get places for dropdown
-        conn = get_db_connection()
-        places = [row[0] for row in conn.execute("SELECT DISTINCT place FROM sensor_data").fetchall()]
-        conn.close()
+        data_list = [dict(row) for row in data]
+        places = get_known_places()
        
-        return render_template('dashboard.html', data=data, places=places)
+        return render_template('dashboard.html', data=data_list, places=places)
+
+
+
     # ==================== CSV EXPORT ROUTES ====================
     @app.route('/download-clients-csv')
     @login_required
