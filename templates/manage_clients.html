@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head><title>Manage Clients</title></head>
+<body>
+    <h1>Manage Clients</h1>
+    <a href="/dashboard">← Back</a>
+    <table border="1">
+        <tr><th>Username</th><th>Place</th><th>Email Alerts</th><th>Actions</th></tr>
+        {% for c in clients %}
+        <tr>
+            <td>{{ c.username }}</td>
+            <td>{{ c.places }}</td>
+            <td>{{ 'On' if c.email_enabled else 'Off' }}</td>
+            <td>
+                <form method="POST" action="/toggle-email/{{ c.username }}" style="display:inline;">
+                    <button>Toggle Alerts</button>
+                </form>
+                <form method="POST" action="/delete-client" style="display:inline;">
+                    <input type="hidden" name="username" value="{{ c.username }}">
+                    <button style="background:red;color:white;">Delete</button>
+                </form>
+                <a href="/generate-simulation/{{ c.username }}">Sim</a>
+                <a href="/api-key/{{ c.username }}">Key</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

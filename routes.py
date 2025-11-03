@@ -339,8 +339,12 @@ def setup_routes(app):
         data = conn.execute(query, params).fetchall()
         conn.close()
        
-        return render_template('dashboard.html', data=data, places=get_known_places())
-
+        # Get places for dropdown
+        conn = get_db_connection()
+        places = [row[0] for row in conn.execute("SELECT DISTINCT place FROM sensor_data").fetchall()]
+        conn.close()
+       
+        return render_template('dashboard.html', data=data, places=places)
     # ==================== CSV EXPORT ROUTES ====================
     @app.route('/download-clients-csv')
     @login_required

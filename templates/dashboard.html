@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>StormSaver Dashboard</title>
+    <script>
+        setTimeout(() => location.reload(), 10000); // Auto-refresh every 10s
+    </script>
+    <style>
+        body { font-family: Arial; background: #f4f6f9; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #1a73e8; color: white; }
+        .warning { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🌩️ StormSaver Dashboard</h1>
+    <p>Logged in as: {{ session.username }} ({{ session.role }}) | <a href="/logout">Logout</a> | <a href="/refresh">Refresh</a></p>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for msg in messages %}
+                <p style="background: #d4edda; padding: 10px; border-radius: 5px;">{{ msg }}</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <h2>Sensor Data (Latest 200)</h2>
+    <table>
+        <tr>
+            <th>Time (UK)</th>
+            <th>Client</th>
+            <th>Place</th>
+            <th>Temp (°C)</th>
+            <th>Hum (%)</th>
+            <th>Warning</th>
+        </tr>
+        {% for row in data %}
+        <tr>
+            <td>{{ row.timestamp }}</td>
+            <td>{{ row.client_place }}</td>
+            <td>{{ row.place }}</td>
+            <td>{{ row.temperature }}</td>
+            <td>{{ row.humidity }}</td>
+            <td class="warning">{{ row.warning }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% if session.role == 'owner' %}
+        <p><a href="/manage-clients">Manage Clients</a></p>
+    {% endif %}
+</body>
+</html>

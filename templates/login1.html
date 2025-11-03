@@ -1,0 +1,88 @@
+<!-- templates/login.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StormSaver - Login</title>
+    <style>
+        body { font-family: Arial; background: #f0f2f5; }
+        .container { max-width: 900px; margin: 40px auto; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .header { text-align: center; padding: 20px; background: #667eea; color: white; border-radius: 10px 10px 0 0; }
+        .form-section { padding: 30px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
+        button { padding: 12px 24px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #5a67d8; }
+        .message { padding: 12px; border-radius: 6px; margin: 15px 0; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .back-link { text-align: center; margin-top: 20px; }
+        .back-link a { color: #667eea; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌩️ StormSaver Sensor System</h1>
+            <p>Secure Login & Client Registration</p>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="message {{ category }}">{{ message | safe }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        
+        <div class="form-section">
+            <h2>Login</h2>
+            <form method="post" action="{{ url_for('login') }}">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" required placeholder="owner or client username">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" required placeholder="Enter password">
+                </div>
+                <button type="submit">Login</button>
+            </form>
+            <p><a href="{{ url_for('forgot_password') }}">Forgot Password?</a></p>
+        </div>
+        
+        <div class="form-section">
+            <h2>Register New Client</h2>
+            <form method="post" action="{{ url_for('register') }}">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="reg_username" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="reg_password" required>
+                </div>
+                <div class="form-group">
+                    <label>Place (e.g., Building01)</label>
+                    <input type="text" name="reg_place" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="reg_email" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone (optional)</label>
+                    <input type="tel" name="reg_phone">
+                </div>
+                <div class="form-group">
+                    <label>Address (optional)</label>
+                    <input type="text" name="reg_address">
+                </div>
+                <button type="submit">Register Client</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
