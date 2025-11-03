@@ -1,29 +1,84 @@
 <!DOCTYPE html>
 <html>
-<head><title>Manage Clients</title></head>
+<head>
+    <title>Manage Clients - StormSaver</title>
+    <style>
+        body { font-family: Arial; background: #f4f6f9; padding: 20px; }
+        .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        input, button { padding: 10px; margin: 5px; width: 100%; box-sizing: border-box; }
+        button { background: #1a73e8; color: white; border: none; cursor: pointer; }
+        button:hover { background: #1557b0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #1a73e8; color: white; }
+        .actions button { width: auto; padding: 8px 12px; background: red; }
+        .actions a { margin: 0 5px; color: #1a73e8; }
+    </style>
+</head>
 <body>
-    <h1>Manage Clients</h1>
-    <a href="/dashboard">← Back</a>
-    <table border="1">
-        <tr><th>Username</th><th>Place</th><th>Email Alerts</th><th>Actions</th></tr>
-        {% for c in clients %}
-        <tr>
-            <td>{{ c.username }}</td>
-            <td>{{ c.places }}</td>
-            <td>{{ 'On' if c.email_enabled else 'Off' }}</td>
-            <td>
-                <form method="POST" action="/toggle-email/{{ c.username }}" style="display:inline;">
-                    <button>Toggle Alerts</button>
-                </form>
-                <form method="POST" action="/delete-client" style="display:inline;">
-                    <input type="hidden" name="username" value="{{ c.username }}">
-                    <button style="background:red;color:white;">Delete</button>
-                </form>
-                <a href="/generate-simulation/{{ c.username }}">Sim</a>
-                <a href="/api-key/{{ c.username }}">Key</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
+    <h1>🌩️ Manage Clients</h1>
+    <a href="/dashboard">← Back to Dashboard</a> | <a href="/download-clients-csv">Download Clients CSV</a>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, msg in messages %}
+                <p style="background: {{ '#d4edda' if category=='success' else '#f8d7da' }}; color: {{ '#155724' if category=='success' else '#721c24' }}; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                    {{ msg }}
+                </p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="box">
+        <h2>Register New Client</h2>
+        <form method="POST" action="/register">
+            <input type="text" name="reg_username" placeholder="Username (e.g., client1)" required>
+            <input type="password" name="reg_password" placeholder="Password (min 6 chars)" required>
+            <input type="text" name="reg_place" placeholder="Place (e.g., London)" required>
+            <input type="email" name="reg_email" placeholder="Email (optional)">
+            <input type="text" name="reg_phone" placeholder="Phone (optional)">
+            <input type="text" name="reg_address" placeholder="Address (optional)">
+            <button type="submit">Register Client</button>
+        </form>
+        <small>API Key shown once after registration!</small>
+    </div>
+
+    <div class="box">
+        <h2>Existing Clients</h2>
+        {% if clients %}
+        <table>
+            <tr>
+                <th>Username</th>
+                <th>Place</th>
+                <th>Email</th>
+                <th>Alerts</th>
+                <th>Interval (s)</th>
+                <th>Actions</th>
+            </tr>
+            {% for c in clients %}
+            <tr>
+                <td>{{ c.username }}</td>
+                <td>{{ c.places }}</td>
+                <td>{{ c.email or 'N/A' }}</td>
+                <td>{{ 'On' if c.email_enabled else 'Off' }}</td>
+                <td>{{ c.collection_interval }}</td>
+                <td class="actions">
+                    <form method="POST" action="/toggle-email/{{ c.username }}" style="display:inline;">
+                        <button type="submit">Toggle Alerts</button>
+                    </form>
+                    <form method="POST" action="/delete-client" style="display:inline;" onsubmit="return confirm('Delete {{ c.username }}?');">
+                        <input type="hidden" name="username" value="{{ c.username }}">
+                        <button type="submit" style="background:red;">Delete</button>
+                    </form>
+                    <a href="/generate-simulation/{{ c.username }}">Sim</a>
+                    <a href="/api-key/{{ c.username }}">Key</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>No clients yet. Register one above!</p>
+        {% endif %}
+    </div>
 </body>
 </html>
