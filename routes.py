@@ -260,28 +260,6 @@ def setup_routes(app):
     def refresh():
         return redirect(url_for('dashboard'))
 
-    @app.route('/filter', methods=['POST'])
-    @login_required
-    def filter_data():
-        filter_text = request.form.get('filter_text', '').strip().lower()
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        if filter_text:
-            query = """
-                SELECT * FROM sensor_data 
-                WHERE LOWER(client_place) LIKE ? OR LOWER(place) LIKE ?
-                ORDER BY timestamp DESC LIMIT 200
-            """
-            cursor.execute(query, (f'%{filter_text}%', f'%{filter_text}%'))
-        else:
-            cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC LIMIT 200")
-        
-        data = cursor.fetchall()
-        conn.close()
-        
-        data_list = [dict(row) for row in data]
-        return render_template('dashboard.html', data=data_list, filter_text=filter_text)
 
     @app.route('/clear-filter')
     @login_required
@@ -334,29 +312,32 @@ def setup_routes(app):
         return redirect(url_for('manage_clients'))
 
     # ==================== DATA & FILTER ROUTES ====================
-    @app.route('/filter', methods=['POST'])
+@app.route('/filter', methods=['POST'])
     @login_required
     def filter_data():
-        filter_text = request.form.get('filter_text', '').strip().lower()
+        place = request.form.get('place')
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+        
         conn = get_db_connection()
-        cursor = conn.cursor()
+        query = "SELECT * FROM sensor_data WHERE 1=1"
+        params = []
         
-        if filter_text:
-            query = """
-                SELECT id, timestamp, client_place, place, temperature, humidity, warning 
-                FROM sensor_data 
-                WHERE LOWER(client_place) LIKE ? OR LOWER(place) LIKE ?
-                ORDER BY timestamp DESC LIMIT 200
-            """
-            cursor.execute(query, (f'%{filter_text}%', f'%{filter_text}%'))
-        else:
-            cursor.execute("SELECT id, timestamp, client_place, place, temperature, humidity, warning FROM sensor_data ORDER BY timestamp DESC LIMIT 200")
+        if place:
+            query += " AND place = ?"
+            params.append(place)
+        if start_date:
+            query += " AND timestamp >= ?"
+            params.append(start_date)
+        if end_date:
+            query += " AND timestamp <= ?"
+            params.append(end_date + " 23:59:59")
         
-        data = cursor.fetchall()
+        query += " ORDER BY timestamp DESC"
+        data = conn.execute(query, params).fetchall()
         conn.close()
         
-        data_list = [dict(row) for row in data]
-        return render_template('dashboard.html', data=data_list, filter_text=filter_text, clients=get_all_clients())
+        return render_template('dashboard.html', data=data, places=get_known_places())
 
     @app.route('/clear-filter')
     @login_required
