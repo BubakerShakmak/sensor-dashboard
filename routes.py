@@ -314,7 +314,7 @@ def setup_routes(app):
         flash(f'Client {username} deleted', 'success')
         return redirect(url_for('manage_clients'))
 
-    @app.route('/toggle-email/<username>', methods=['POST'])-----
+    @app.route('/toggle-email/<username>', methods=['POST'])
     @login_required
     def toggle_email(username):
         if session.get('username') != 'owner':
@@ -323,17 +323,15 @@ def setup_routes(app):
         
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT email_enabled FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT email_enabled FROM clients WHERE username = ?", (username,))
         row = cursor.fetchone()
         new_status = 0 if row and row[0] == 1 else 1
-        cursor.execute("UPDATE users SET email_enabled = ? WHERE username = ?", (new_status, username))
+        cursor.execute("UPDATE clients SET email_enabled = ? WHERE username = ?", (new_status, username))
         conn.commit()
         conn.close()
         
         flash(f'Email alerts {"enabled" if new_status else "disabled"} for {username}', 'success')
         return redirect(url_for('manage_clients'))
-
-
 
     # ==================== DATA & FILTER ROUTES ====================
     @app.route('/filter', methods=['POST'])
